@@ -3,9 +3,6 @@ import { Label } from '@radix-ui/react-label'
 import { Input } from '../components/ui/input'
 import { Checkbox } from '../components/ui/checkbox'
 import { Button } from '../components/ui/button'
-import React, { useState } from 'react';
-import { register } from '../../app/api'
-import { useNavigate } from 'react-router-dom';
 import { ExclamationTriangleIcon } from "@radix-ui/react-icons";
 import {
     Alert,
@@ -13,37 +10,59 @@ import {
     AlertTitle,
 } from "@/components/ui/alert"
 import { socialMedia } from '../../data/index';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { registerFn } from '../../app/api';
+import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+
+
+const UserRegisterSchema = z.object({
+    name: z.string()
+        .min(3, 'Nome precisa de no mínimo três caracteres'),
+    email: z.string()
+        .email('Formato de e-mail inválido'),
+    password: z.string()
+        .min(6, 'a senha precisa ter no minimo 6 digitos'),
+    confirmPassword: z.string()
+        .min(6, 'a senha precisa ter no minimo 6 digitos'),
+    })
+    .refine((data) => data.password === data.confirmPassword, {
+        message: 'As senhas não são iguais',
+        path: ['confirmPassword'],
+    })
+   
+    type UserRegisterData = z.infer < typeof UserRegisterSchema >
+
 
 const RegisterPage: React.FC = () => {
+  
+    const {
+        register,
+        handleSubmit,
+        formState: {errors}
+     } = useForm<UserRegisterData>({
+        resolver:zodResolver(UserRegisterSchema),
+    }
+);
 
-    const [name, setName] = useState('');
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
-    const [error, setError] = useState('');
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    let navigate = useNavigate();
+let navigate = useNavigate();
+const [error, setError] = useState('');
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setIsSubmitting(true);
-        if (password !== confirmPassword) {
-            setError('As senhas não são iguais')
-            setIsSubmitting(false)
-            return;
-        }
+    const createUser = async (data: UserRegisterData) => {
         try {
-            const response = await register(name, email, password);
-            localStorage.setItem('token:', response.data.token);
-            navigate("/auth/login");
+            const response = await registerFn(data.name, data.email, data.password)
+
+            if(response.data.token) {
+                localStorage.setItem('token:', response.data.token)
+                navigate('/auth/login')
+            }
         } catch (error) {
-            console.log('Registration failed:', error);
-        } finally {
-            setIsSubmitting(false);
+            setError('Preencha os campos corretamente')
+            console.log('erro:', error);
         }
-    };
-
-
+    }
 
     return (
         <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2">
@@ -56,18 +75,24 @@ const RegisterPage: React.FC = () => {
                                 Insira suas credenciais para criar sua conta.
                             </p>
                         </div>
-                        <form className="grid gap-4" onSubmit={handleSubmit}>
+                        <form className="grid gap-4" onSubmit={handleSubmit(createUser)}>
                             <div className="grid gap-2">
                                 <Label htmlFor="name">Nome</Label>
                                 <Input
                                     id="name"
                                     type="text"
                                     placeholder="Nome Completo"
-                                    required
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    disabled={isSubmitting}
+                                    {...register('name')}
                                 />
+                                {errors.name &&
+                                    <Alert variant="destructive">
+                                        <ExclamationTriangleIcon className="h-4 w-4" />
+                                        <AlertTitle>Error</AlertTitle>
+                                        <AlertDescription>
+                                            {errors.name.message}
+                                        </AlertDescription>
+                                    </Alert>
+                                }
                             </div>
                             <div className="grid gap-2">
                                 <Label htmlFor="email">Email</Label>
@@ -75,34 +100,52 @@ const RegisterPage: React.FC = () => {
                                     id="email"
                                     type="email"
                                     placeholder="Nome@exemplo.com"
-                                    required
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    disabled={isSubmitting}
+                                    {...register('email')}
                                 />
+                                {errors.email &&
+                                    <Alert variant="destructive">
+                                        <ExclamationTriangleIcon className="h-4 w-4" />
+                                        <AlertTitle className='font-medium'>Error</AlertTitle>
+                                        <AlertDescription>
+                                            {errors.email.message}
+                                        </AlertDescription>
+                                    </Alert>
+                                }
                             </div>
                             <div className="grid gap-2">
                                 <Label htmlFor="password">Senha</Label>
                                 <Input
                                     id="password"
                                     type="password"
-                                    required
                                     placeholder='Senha'
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    disabled={isSubmitting}
+                                    {...register('password')}
                                 />
+                                {errors.password &&
+                                    <Alert variant="destructive">
+                                        <ExclamationTriangleIcon className="h-4 w-4" />
+                                        <AlertTitle className='font-medium'>Error</AlertTitle>
+                                        <AlertDescription>
+                                            {errors.password.message}
+                                        </AlertDescription>
+                                    </Alert>
+                                }
                                 <div className="grid gap-2">
                                     <Label htmlFor="confirmPassword">Confirmação de Senha</Label>
                                     <Input
                                         id="confirmPassword"
                                         type="password"
                                         placeholder="Confirme sua senha"
-                                        required
-                                        value={confirmPassword}
-                                        onChange={(e) => setConfirmPassword(e.target.value)}
-                                        disabled={isSubmitting}
+                                        {...register('confirmPassword')}
                                     />
+                                    {errors.confirmPassword &&
+                                    <Alert variant="destructive">
+                                        <ExclamationTriangleIcon className="h-4 w-4" />
+                                        <AlertTitle>Error</AlertTitle>
+                                        <AlertDescription>
+                                            {errors.confirmPassword.message}
+                                        </AlertDescription>
+                                    </Alert>
+                                    }
                                 </div>
                             </div>
                             {error && (
@@ -116,7 +159,7 @@ const RegisterPage: React.FC = () => {
                                     </Alert>
                                 </div>
                             )}
-                            <Button type="submit" className="w-full mt-1" disabled={isSubmitting}>
+                            <Button type="submit" className="w-full mt-1">
                                 Cadastrar
                             </Button>
                         </form>

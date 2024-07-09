@@ -1,4 +1,4 @@
-import * as React from "react"
+
 import {
     ChevronLeft,
     ChevronRight,
@@ -75,7 +75,6 @@ import {
     TooltipTrigger,
     TooltipProvider
 } from "@/components/ui/tooltip"
-import { socialMedia } from "../../data/index"
 
 function UserPage() {
     return (

@@ -3,9 +3,6 @@ import { Label } from '@radix-ui/react-label'
 import { Input } from '../components/ui/input'
 import  {socialMedia} from '../../data/index'
 import { Button } from '../components/ui/button'
-import React, { useState } from 'react';
-import { login } from '../../app/api'
-import { useNavigate } from 'react-router-dom';
 import { ExclamationTriangleIcon } from "@radix-ui/react-icons";
 import {
   Alert,
@@ -13,31 +10,46 @@ import {
   AlertTitle,
 } from "@/components/ui/alert"
 import { GoogleLogin } from '@react-oauth/google';
+import { z } from 'zod'
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { loginFn } from '../../app/api'
+import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+
+const LoginFormSchema = z.object({
+  email: z.string().email('Formato de email inválido'),
+  password: z.string().min(6, 'A senha precisa de no mínimo 6 caracteres')
+})
+
+type LoginFormData = z.infer<typeof LoginFormSchema>
 
 const LoginPage: React.FC = () => {
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
   let navigate = useNavigate();
+  const [error, setError] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
+  const { 
+    register, 
+    handleSubmit, 
+    formState: {errors}, 
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(LoginFormSchema),
+  });
+
+   const handleLoginSuccess = async (data: LoginFormData) => {
     try {
-      const response = await login(email, password);
-      if (response.data.sucess) {
+      const response = await loginFn(data.email, data.password);
+
+      if(response.data.token){
         localStorage.setItem('token:', response.data.token);
+        navigate('/auth/user');
       }
-      navigate("/auth/user");
     } catch (error) {
-      console.log('Login failed:', error);
-      setError('Usuário ou senha inválidos.');
-    } finally {
-      setIsSubmitting(false);
+      setError('Usuario ou senha inválidos')
+      console.log('Erro ao fazer login:', error);
     }
-  };
+   }
 
   return (
     <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2">
@@ -50,19 +62,27 @@ const LoginPage: React.FC = () => {
                 Entre com o seu email para logar na sua conta.
               </p>
             </div>
-            <form className="grid gap-4" onSubmit={handleSubmit}>
+            <form className="grid gap-4" onSubmit={handleSubmit(handleLoginSuccess)}>
               <div className="grid gap-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
                   type="email"
                   placeholder="Nome@exemplo.com"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={isSubmitting}
+                  {...register('email')}
                 />
               </div>
+              {errors.email && (
+                <div className="grid gap-2">
+                  <Alert variant="destructive">
+                    <ExclamationTriangleIcon className="h-4 w-4" />
+                    <AlertTitle>Error</AlertTitle>
+                    <AlertDescription>
+                      {errors.email.message}
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
               <div className="grid gap-2">
                 <div className="flex items-center">
                   <Label htmlFor="password">Senha</Label>
@@ -76,13 +96,21 @@ const LoginPage: React.FC = () => {
                 <Input
                   id="password"
                   type="password"
-                  required
+                  {...register('password')}
                   placeholder="Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={isSubmitting}
                 />
               </div>
+              {errors.password && (
+                <div className="grid gap-2">
+                  <Alert variant="destructive">
+                    <ExclamationTriangleIcon className="h-4 w-4" />
+                    <AlertTitle>Error</AlertTitle>
+                    <AlertDescription>
+                      {errors.password.message}
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
               {error && (
                 <div className="grid gap-2">
                   <Alert variant="destructive">
@@ -94,7 +122,7 @@ const LoginPage: React.FC = () => {
                   </Alert>
                 </div>
               )}
-              <Button type="submit" className="w-full" disabled={isSubmitting}>
+              <Button type="submit" className="w-full">
                 Entrar
               </Button>
               <GoogleLogin
